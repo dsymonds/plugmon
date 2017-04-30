@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -37,18 +38,26 @@ func main() {
 	if _, err := conn.WriteToUDP(msg, dst); err != nil {
 		log.Fatalf("conn.WriteToUDP: %v", err)
 	}
-	var scratch [1 << 10]byte
-	n, raddr, err := conn.ReadFrom(scratch[:])
-	if err != nil {
-		log.Fatalf("conn.ReadFrom: %v", err)
-	}
-	b := scratch[:n]
-	log.Printf("got back %d bytes from %s: %x", n, raddr, b)
 
-	d := decode(msg, b)
-	log.Printf("* %q (MAC %s, IP %s)", d.name, d.mac, d.ip)
-	log.Printf("  unknown1: %x", d.unknown1)
-	log.Printf("  unknown2: %x", d.unknown2)
+	// Wait for any responses over the next 2s.
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var scratch [1 << 10]byte
+	for {
+		n, raddr, err := conn.ReadFrom(scratch[:])
+		if err != nil {
+			if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+				break
+			}
+			log.Fatalf("conn.ReadFrom: %v", err)
+		}
+		b := scratch[:n]
+		log.Printf("got back %d bytes from %s: %x", n, raddr, b)
+
+		d := decode(msg, b)
+		log.Printf("* %q (MAC %s, IP %s)", d.name, d.mac, d.ip)
+		log.Printf("  unknown1: %x", d.unknown1)
+		log.Printf("  unknown2: %x", d.unknown2)
+	}
 }
 
 func decode(req, b []byte) *data {
