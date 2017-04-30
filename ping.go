@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -17,8 +16,11 @@ func main() {
 	msg := []byte{
 		// These first 32 bytes will be echoed back.
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x0a, 0x00, 0x00, 0x00, 0xe1, 0x07, 0x05, 0x0c,
-		0x01, 0x06, 0x1d, 0x04, 0x00, 0x00, 0x00, 0x00,
+		0x0a, 0x00, 0x00, 0x00,
+		0xe1, 0x07, // yyyy, little endian
+		0x05, 0x0c, 0x01, 0x06, // ss, mm, hh, ?
+		0x1d, 0x04, // dd mm
+		0x00, 0x00, 0x00, 0x00,
 		laddr.IP[0], laddr.IP[1], laddr.IP[2], laddr.IP[3],
 		byte(laddr.Port & 0xff), byte(laddr.Port >> 8),
 		0x00, 0x00,
@@ -44,8 +46,9 @@ func main() {
 	log.Printf("got back %d bytes from %s: %x", n, raddr, b)
 
 	d := decode(msg, b)
-	log.Printf("* %q (MAC %s, IP %s, ID %q)", d.name, d.mac, d.ip, d.id)
+	log.Printf("* %q (MAC %s, IP %s)", d.name, d.mac, d.ip)
 	log.Printf("  unknown1: %x", d.unknown1)
+	log.Printf("  unknown2: %x", d.unknown2)
 }
 
 func decode(req, b []byte) *data {
@@ -74,21 +77,14 @@ func decode(req, b []byte) *data {
 	// Drop the first 32 bytes. They echo the request.
 	next(32)
 
-	d.unknown1 = next(20)
-
-	// Next 2 are the device ID.
-	switch x := fmt.Sprintf("0x%X", next(2)); x {
-	case "0x1627":
-		d.id = "Neo Power/INPLUG"
-	default:
-		d.id = x
-	}
+	d.unknown1 = next(4)  // offset=32
+	d.unknown2 = next(18) // offset=36
 
 	// Next 4 are the reversed IP of the switch.
-	d.ip = rev(next(4))
+	d.ip = rev(next(4)) // offset=54
 
 	// Next 6 are the reversed MAC.
-	d.mac = rev(next(6))
+	d.mac = rev(next(6)) // offset=60
 
 	// The remainder is the switch's name,
 	// padded with zero bytes.
@@ -99,7 +95,7 @@ func decode(req, b []byte) *data {
 
 type data struct {
 	unknown1 []byte
-	id       string
+	unknown2 []byte
 	ip       net.IP
 	mac      net.HardwareAddr
 	name     string
