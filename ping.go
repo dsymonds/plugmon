@@ -42,6 +42,7 @@ func main() {
 	// Wait for any responses over the next 2s.
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var scratch [1 << 10]byte
+	var n int
 	for {
 		n, raddr, err := conn.ReadFrom(scratch[:])
 		if err != nil {
@@ -57,7 +58,9 @@ func main() {
 		log.Printf("* %q (MAC %s, IP %s)", d.name, d.mac, d.ip)
 		log.Printf("  unknown1: %x", d.unknown1)
 		log.Printf("  unknown2: %x", d.unknown2)
+		n++
 	}
+	log.Printf("Received %d responses.", n)
 }
 
 func decode(req, b []byte) *data {
