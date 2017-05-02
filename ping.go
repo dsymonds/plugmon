@@ -14,6 +14,7 @@ func main() {
 		log.Fatalf("net.ListenUDP: %v", err)
 	}
 	laddr := conn.LocalAddr().(*net.UDPAddr)
+	log.Printf("Listening for UDP responses on port %d", laddr.Port)
 	msg := []byte{
 		// These first 32 bytes will be echoed back.
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -26,8 +27,10 @@ func main() {
 		byte(laddr.Port & 0xff), byte(laddr.Port >> 8),
 		0x00, 0x00,
 
+		// 6c (108) used to work, but now 8c (140) is required
+		0x8c,
 		// dunno what the rest is for
-		0x6c, 0xc1, 0x00, 0x00, 0x00, 0x00, // 6c -> 108 (dec)
+		0xc1, 0x00, 0x00, 0x00, 0x00,
 		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 	dst := &net.UDPAddr{
