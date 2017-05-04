@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/dsymonds/plugmon/inplug"
 )
 
 func main() {
@@ -15,24 +17,17 @@ func main() {
 	}
 	laddr := conn.LocalAddr().(*net.UDPAddr)
 	log.Printf("Listening for UDP responses on port %d", laddr.Port)
-	msg := []byte{
-		// These first 32 bytes will be echoed back.
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x0a, 0x00, 0x00, 0x00,
-		0xe1, 0x07, // yyyy, little endian
-		0x05, 0x0c, 0x01, 0x06, // ss, mm, hh, ?
-		0x1d, 0x04, // dd mm
-		0x00, 0x00, 0x00, 0x00,
-		laddr.IP[0], laddr.IP[1], laddr.IP[2], laddr.IP[3],
-		byte(laddr.Port & 0xff), byte(laddr.Port >> 8),
-		0x00, 0x00,
 
-		// 6c (108) used to work, but now 8c (140) is required
-		0x8c,
-		// dunno what the rest is for
-		0xc1, 0x00, 0x00, 0x00, 0x00,
-		0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	discReq := &inplug.DiscoveryRequest{
+		Now:        time.Now(),
+		SourceIP:   laddr.IP,
+		SourcePort: laddr.Port,
 	}
+	msg, err := discReq.MarshalBinary()
+	if err != nil {
+		log.Fatalf("Encoding discovery request: %v", err)
+	}
+
 	dst := &net.UDPAddr{
 		IP:   net.IPv4(255, 255, 255, 255),
 		Port: 80,
