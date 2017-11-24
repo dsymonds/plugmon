@@ -40,25 +40,25 @@ func main() {
 	// Wait for any responses over the next 2s.
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var scratch [1 << 10]byte
-	var n int
+	var nresp int
 	for {
-		n, raddr, err := conn.ReadFrom(scratch[:])
+		nb, raddr, err := conn.ReadFrom(scratch[:])
 		if err != nil {
 			if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
 				break
 			}
 			log.Fatalf("conn.ReadFrom: %v", err)
 		}
-		b := scratch[:n]
-		log.Printf("got back %d bytes from %s: %x", n, raddr, b)
+		b := scratch[:nb]
+		log.Printf("got back %d bytes from %s: %x", nb, raddr, b)
 
 		d := decode(msg, b)
 		log.Printf("* %q (MAC %s, IP %s)", d.name, d.mac, d.ip)
 		log.Printf("  unknown1: %x", d.unknown1)
 		log.Printf("  unknown2: %x", d.unknown2)
-		n++
+		nresp++
 	}
-	log.Printf("Received %d responses.", n)
+	log.Printf("Received %d responses.", nresp)
 }
 
 func decode(req, b []byte) *data {
