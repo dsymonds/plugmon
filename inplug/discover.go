@@ -26,17 +26,19 @@ func (dr *DiscoveryRequest) MarshalBinary() (data []byte, err error) {
 	// Start with a 12 byte static header.
 	data = append(data, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0x0A, 0, 0, 0}...)
 
-	y, mon, d := dr.Now.Date()
-	h, min, s := dr.Now.Clock()
+	// The time is in UTC.
+	now := dr.Now.UTC()
+	y, mon, d := now.Date()
+	h, min, s := now.Clock()
 
 	// Two bytes for a year, in little endian.
 	data = append(data, byte(y&0xFF), byte(y>>8))
 
-	// Four bytes: seconds, minutes, then ?!?
-	// 2017/05/04 18:46:51 -> 08 04
-	// 2017/05/04 19:05:06 -> 09 04
-	_ = h
-	data = append(data, byte(s), byte(min), 8, 4)
+	// Three bytes: seconds, minutes, hour
+	data = append(data, byte(s), byte(min), byte(h))
+
+	// I don't know what this byte is for. I've seen it be 4 or 5.
+	data = append(data, 4)
 
 	// Two bytes for day and month.
 	data = append(data, byte(d), byte(mon))
@@ -56,7 +58,7 @@ func (dr *DiscoveryRequest) MarshalBinary() (data []byte, err error) {
 	data = append(data, []byte{0, 0}...)
 
 	// This is unknown. 6C used to work, but now 8C is required.
-	// 7B and 7C work too.
+	// 7B, 7C, 8E, 91 work too.
 	data = append(data, 0x8C)
 
 	// The remainder is more static bytes.
