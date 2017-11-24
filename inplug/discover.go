@@ -5,6 +5,7 @@ package inplug
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -68,4 +69,54 @@ func (dr *DiscoveryRequest) MarshalBinary() (data []byte, err error) {
 		return nil, fmt.Errorf("inplug internal error: len(data)=%d", len(data))
 	}
 	return data, nil
+}
+
+// DiscoveryResponse represents a response to a discovery request.
+type DiscoveryResponse struct {
+	// IP and MAC are the Layer 3 and Layer 2 network addresses of the switch.
+	IP  net.IP
+	MAC net.HardwareAddr
+
+	// Name is the human-readable name of the switch.
+	Name string
+
+	// Unknown1 and Unknown2 are chunks of data that I haven't decoded.
+	Unknown1, Unknown2 []byte
+}
+
+func (dr *DiscoveryResponse) UnmarshalBinary(data []byte) error {
+	if len(data) != 128 {
+		return fmt.Errorf("bad response length %d (want 128)", len(data))
+	}
+
+	// next returns the next n bytes from data.
+	next := func(n int) []byte {
+		x := data[:n]
+		data = data[n:]
+		return x
+	}
+	rev := func(b []byte) []byte {
+		for i, j := 0, len(b)-1; i < len(b)/2; i, j = i+1, j-1 {
+			b[i], b[j] = b[j], b[i]
+		}
+		return b
+	}
+
+	// Drop the first 32 bytes. They echo the request.
+	next(32)
+
+	dr.Unknown1 = next(4)  // offset=32
+	dr.Unknown2 = next(18) // offset=36
+
+	// Next 4 are the reversed IP of the switch.
+	dr.IP = rev(next(4)) // offset=54
+
+	// Next 6 are the reversed MAC.
+	dr.MAC = rev(next(6)) // offset=60
+
+	// The remainder is the switch's name,
+	// padded with zero bytes.
+	dr.Name = strings.TrimRight(string(data), "\x00")
+
+	return nil
 }
